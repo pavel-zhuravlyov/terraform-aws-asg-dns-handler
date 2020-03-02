@@ -62,6 +62,9 @@ def fetch_tag_metadata(asg_name):
 def build_hostname(hostname_pattern, instance_id):
     return hostname_pattern.replace('#instanceid', instance_id)
 
+def build_generic_hostname(hostname_pattern):
+    return hostname_pattern.replace('-#instanceid', '')
+
 # Updates the name tag of an instance
 def update_name_tag(instance_id, hostname):
     tag_name = hostname.split('.')[0]
@@ -115,6 +118,7 @@ def process_message(message):
 
     hostname_pattern, zone_id = fetch_tag_metadata(asg_name)
     hostname = build_hostname(hostname_pattern, instance_id)
+    generic_hostname = build_generic_hostname(hostname_pattern)
 
     if operation == "UPSERT":
         private_ip = fetch_private_ip_from_ec2(instance_id)
@@ -124,6 +128,7 @@ def process_message(message):
         private_ip = fetch_private_ip_from_route53(hostname, zone_id)
 
     update_record(zone_id, private_ip, hostname, operation)
+    update_record(zone_id, private_ip, generic_hostname, operation)
 
 # Picks out the message from a SNS message and deserializes it
 def process_record(record):
@@ -147,11 +152,11 @@ def lambda_handler(event, context):
             InstanceId = message['EC2InstanceId'],
             LifecycleActionToken = message['LifecycleActionToken'],
             LifecycleActionResult = 'CONTINUE'
-        
+
         )
-        logger.info("ASG action complete: %s", response)    
+        logger.info("ASG action complete: %s", response)
     else :
-        logger.error("No valid JSON message")        
+        logger.error("No valid JSON message")
 
 # if invoked manually, assume someone pipes in a event json
 if __name__ == "__main__":
